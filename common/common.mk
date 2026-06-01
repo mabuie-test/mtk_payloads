@@ -47,6 +47,9 @@ RPMB_SRCS = \
 MMC_SRCS = \
 	$(COMMON_DIR)/storage/mmc/mmc.c
 
+XML_SRCS = \
+    $(COMMON_DIR)/xml.c \
+    $(COMMON_DIR)/yxml.c
 
 # Features
 
@@ -86,6 +89,10 @@ COMMON_SRCS   += $(COMMON_DIR)/storage/mmc/rpmb_mmc.c
 COMMON_CFLAGS += -Dmmc_rpmb
 endif
 
+ifneq ($(filter xml,$(FEATURES)),)
+COMMON_SRCS   += $(XML_SRCS)
+COMMON_CFLAGS += -Dxml_parser
+endif
 
 # Flags
 
