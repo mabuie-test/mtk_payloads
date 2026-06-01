@@ -28,11 +28,16 @@ endif
 
 
 CRYPTO_SRCS = \
+	$(COMMON_DIR)/crypto/xor.c \
 	$(COMMON_DIR)/crypto/sbrom/sbrom.c \
 	$(COMMON_DIR)/crypto/tzcc.c \
 	$(COMMON_DIR)/crypto/key_derive.c \
 	$(COMMON_DIR)/crypto/hmac-sha256.c \
-	$(COMMON_DIR)/crypto/sha256.c
+	$(COMMON_DIR)/crypto/sha256.c \
+	$(COMMON_DIR)/crypto/sej/sej.c \
+	$(COMMON_DIR)/crypto/sej/sej_hk.c \
+	$(COMMON_DIR)/crypto/sej/sej_sk.c \
+	$(COMMON_DIR)/drivers/sgpt/sgpt.c
 
 CRYPTO_SSR_SRCS = \
 	$(COMMON_DIR)/crypto/ssr/top.c \
