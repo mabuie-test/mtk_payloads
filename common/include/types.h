@@ -6,6 +6,11 @@
 #include <stddef.h>
 #include <inttypes.h>
 
+#define UNUSED(x) (void)(x)
+#define likely(x)   __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
+typedef uintptr_t uptr;
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
