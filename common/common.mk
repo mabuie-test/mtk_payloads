@@ -18,6 +18,8 @@ COMMON_SRCS := \
 	$(COMMON_DIR)/debug.c \
 	$(COMMON_DIR)/libc.c
 
+O3_SRCS ?=
+
 COMMON_INCLUDES := \
 	-I$(COMMON_DIR)/include
 
@@ -61,6 +63,9 @@ XML_SRCS = \
 ifneq ($(filter crypto,$(FEATURES)),)
 COMMON_SRCS   += $(CRYPTO_SRCS)
 COMMON_CFLAGS += -Dcrypto
+O3_SRCS       += \
+    $(COMMON_DIR)/crypto/hmac-sha256.c \
+    $(COMMON_DIR)/crypto/sha256.c
 endif
 
 ifneq ($(filter crypto_ssr,$(FEATURES)),)
@@ -75,11 +80,13 @@ endif
 ifneq ($(filter mmc,$(FEATURES)),)
 COMMON_SRCS   += $(MMC_SRCS)
 COMMON_CFLAGS += -Dmmc
+O3_SRCS       += $(MMC_SRCS)
 endif
 
 ifneq ($(filter rpmb,$(FEATURES)),)
 COMMON_SRCS   += $(RPMB_SRCS)
 COMMON_CFLAGS += -Drpmb
+O3_SRCS       += $(RPMB_SRCS)
 endif
 
 ifneq ($(filter mmc_rpmb,$(FEATURES)),)
@@ -92,31 +99,37 @@ endif
 
 COMMON_SRCS   += $(COMMON_DIR)/storage/mmc/rpmb_mmc.c
 COMMON_CFLAGS += -Dmmc_rpmb
+O3_SRCS       += $(COMMON_DIR)/storage/mmc/rpmb_mmc.c
 endif
 
 ifneq ($(filter xml,$(FEATURES)),)
 COMMON_SRCS   += $(XML_SRCS)
 COMMON_CFLAGS += -Dxml_parser
+O3_SRCS       += $(XML_SRCS)
 endif
 
 # Flags
 
 COMMON_CFLAGS += \
-	-std=gnu99 -Os -Wall -Wextra \
+	-std=gnu99 -O2 -Wall -Wextra \
 	-fno-strict-aliasing \
 	-fno-builtin \
+	-flto \
 	-fno-omit-frame-pointer \
-	-fno-pic -fno-pie
+	-fno-pic -fno-pie \
+	-I$(COMMON_DIR)/include
 
 COMMON_LDFLAGS ?= \
 	-nodefaultlibs -nostdlib \
 	-Wl,--build-id=none,--no-warn-rwx-segments
 
 
-common_objects = $(patsubst %.c,$(1)/%.o,$(subst ../,,$(COMMON_SRCS)))
+# For some files we want to use -O3 for faster performance (mainly storage drivers
+# and SW crypto functions)
+$(foreach src,$(O3_SRCS),$(eval %$(subst ../,,$(src:.c=.o)): EXTRA_CFLAGS := -O3))
 
 define common_build_rule
 $(1)/common/%.o: $(COMMON_DIR)/%.c
 	@mkdir -p $$(dir $$@)
-	$(2) $(3) $(COMMON_INCLUDES) -c $$< -o $$@
+	$(2) $(3) $$(EXTRA_CFLAGS) -c $$< -o $$@
 endef
