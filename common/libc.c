@@ -56,6 +56,35 @@ size_t strlen(const char *str)
     return (size_t)(s - str);
 }
 
+char *strncat(char *dest, const char *src, size_t n)
+{
+    char *d = dest;
+
+    while (*d)
+        d++;
+
+    if (n == 0)
+        return dest;
+
+    while (n-- && *src)
+        *d++ = *src++;
+
+    *d = '\0';
+    return dest;
+}
+
+char *strrchr(const char *s, int c) {
+    const char *last = NULL;
+    char ch = (char)c;
+
+    do {
+        if (*s == ch)
+            last = s;
+    } while (*s++);
+
+    return (char *)last;
+}
+
 int strcmp(const char *s1, const char *s2)
 {
     while (*s1 == *s2++)
@@ -112,7 +141,8 @@ int split(char *src, char **dest, int max, char sep) {
     return cnt;
 }
 
-void *memset(void *dst, int c, u32 n)
+__attribute__((used))
+void *memset(void *dst, int c, size_t n)
 {
     if (n != 0) {
         unsigned char *d = dst;
