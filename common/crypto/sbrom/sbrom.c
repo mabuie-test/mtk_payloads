@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <libc.h>
+#include <mmio.h>
 
 static inline void sb_write(volatile uint32_t *base, uint32_t offset, uint32_t value) {
     *(volatile uint32_t *)((uint8_t *)base + offset) = value;
@@ -203,6 +204,8 @@ SaSiStatus SBROM_KeyDerivation(uintptr_t hwBaseAddress, HwCryptoKey_t aesKeyType
 
     for (uint32_t i = 0; i < blocks; i++) {
         buffer[0] = i + 1;
+
+        mem_barrier();
 
         status = sb_aes_cmac(base, aesKeyType, buffer, seed_size + saltSize + 3, tmp);
 

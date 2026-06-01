@@ -111,6 +111,8 @@ do { \
     invalidate_icache(); \
 } while(0)
 
+#define mem_barrier() __asm__ volatile("" ::: "memory")
+
 #define __raw_readb(addr) \
     ({ uint8_t __v = (*(volatile uint8_t *)(uintptr_t)(addr)); __v; })
 
