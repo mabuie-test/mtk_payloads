@@ -7,7 +7,7 @@
 #define DA_X_PROTOCOL_H
 
 #include <hal.h>
-#include <stdint.h>
+#include <types.h>
 #include <stream.h>
 
 #define FACILITY_EXTENSIONS 0xE
@@ -34,15 +34,15 @@
 
 extern com_channel_struct* g_com_channel;
 
-extern void *(*malloc)(size_t size);
-extern void (*free)(void *ptr);
-extern void *(*mmc_get_card)(int card_id);
+extern void *(* volatile malloc)(size_t size);
+extern void (* volatile free)(void *ptr);
+extern void *(* volatile mmc_get_card)(int card_id);
 
 void da_log_register(com_channel_struct *channel);
-int download_data(com_channel_struct* channel, uint8_t** dst, uint64_t size, const char* desc);
-int upload_data(com_channel_struct* channel, const uint8_t* src, uint64_t size, const char* desc);
+int download_data(com_channel_struct* channel, u8** dst, u64 size, const char* desc);
+int upload_data(com_channel_struct* channel, const u8* src, u64 size, const char* desc);
 
-int download_data_stream(com_channel_struct* channel, uint64_t size, uint32_t chunk_size, data_stream_cb cb, void *ctx, const char* desc);
-int upload_data_stream(com_channel_struct* channel, uint64_t size, uint32_t chunk_size, data_stream_cb cb, void *ctx, const char* desc);
+int download_data_stream(com_channel_struct* channel, u64 size, u32 chunk_size, data_stream_cb cb, void *ctx, const char* desc);
+int upload_data_stream(com_channel_struct* channel, u64 size, u32 chunk_size, data_stream_cb cb, void *ctx, const char* desc);
 
 #endif //DA_X_PROTOCOL_H

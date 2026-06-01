@@ -16,10 +16,7 @@ BUILD_DIR  := build
 DA_X_SRCS := $(wildcard src/*.c)
 ASM_SRCS  := src/start.S
 
-
-LIBSEJ_SRCS := $(LIBSEJ_DIR)/src/sej.c
-
-ALL_SRCS := $(DA_X_SRCS) $(LIBSEJ_SRCS) $(EXTRA_COMMON_SRCS) $(COMMON_SRCS)
+ALL_SRCS := $(DA_X_SRCS) $(EXTRA_COMMON_SRCS) $(COMMON_SRCS)
 
 CFLAGS := $(COMMON_CFLAGS) \
 	-mthumb -mcpu=cortex-a9 \
@@ -27,7 +24,6 @@ CFLAGS := $(COMMON_CFLAGS) \
 	-fPIE \
 	-DV5 \
 	-Iinclude \
-	-I$(LIBSEJ_DIR)/include \
 	$(COMMON_INCLUDES)
 
 ASMFLAGS := -Iinclude \
@@ -57,24 +53,18 @@ $(TARGET_BIN): $(TARGET_ELF)
 
 $(TARGET_ELF): $(ALL_OBJS)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) $^ -o $@ $(LDFLAGS)
 	$(SIZE) $@
 
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: %.S
 	@mkdir -p $(dir $@)
 	$(CC) $(ASMFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/common/%.o: $(COMMON_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/libsej/%.o: $(LIBSEJ_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(eval $(call common_build_rule,$(BUILD_DIR),$(CC),$(CFLAGS)))
 
 clean:
 	rm -rf $(BUILD_DIR)
