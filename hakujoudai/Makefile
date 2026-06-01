@@ -9,14 +9,18 @@ CC_ARM64      := $(CROSS_COMPILE_64)gcc
 LD_ARM64      := $(CROSS_COMPILE_64)gcc
 OBJCOPY_ARM64 := $(CROSS_COMPILE_64)objcopy
 
+FEATURES   := uart xml
+COMMON_DIR := ../common
+include $(COMMON_DIR)/common.mk
+
 SRC_DIR   := src
 BUILD_DIR := build
 OUT_ARM   := ../payloads/hakujoudai_arm
 OUT_ARM64 := ../payloads/hakujoudai_arm64
 
-CFLAGS_COMMON := -std=gnu99 -Os -fno-builtin -fno-strict-aliasing
+CFLAGS_COMMON := $(COMMON_CFLAGS) -Os -fno-builtin -fno-strict-aliasing
 CFLAGS_COMMON += -fvisibility=hidden
-CFLAGS_COMMON += -Isrc/include
+CFLAGS_COMMON += -Isrc/include -Wno-main
 
 ifeq ($(DEBUG),1)
 CFLAGS_COMMON += -DDEBUG
@@ -28,7 +32,7 @@ CFLAGS_ARM += -march=armv7-a -marm -fpic -mpic-data-is-text-relative
 CFLAGS_ARM64 := $(CFLAGS_COMMON)
 CFLAGS_ARM64 += -march=armv8-a -mcmodel=tiny -fno-pic -fno-pie -fno-plt
 
-LDFLAGS_COMMON := -nostdlib -Wl,--no-warn-rwx-segments
+LDFLAGS_COMMON := $(COMMON_LDFLAGS) -nostdlib -Wl,--no-warn-rwx-segments
 
 LDFLAGS_ARM   := $(LDFLAGS_COMMON) -T src/linker32.x
 LDFLAGS_ARM64 := $(LDFLAGS_COMMON) -T src/linker64.x
@@ -38,11 +42,14 @@ LIBS_ARM64 :=
 
 C_SOURCES := $(shell find $(SRC_DIR) -name '*.c')
 
-ARM_C_OBJ   := $(C_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/arm/%.o)
+map_arm_obj   = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/arm/%.o,$(patsubst $(COMMON_DIR)/%.c,$(BUILD_DIR)/arm/common/%.o,$(1)))
+map_arm64_obj = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/arm64/%.o,$(patsubst $(COMMON_DIR)/%.c,$(BUILD_DIR)/arm64/common/%.o,$(1)))
+
+ARM_C_OBJ   := $(call map_arm_obj,$(C_SOURCES) $(COMMON_SRCS))
 ARM_ASM_OBJ := $(BUILD_DIR)/arm/entry.o
 ARM_OBJ     := $(ARM_ASM_OBJ) $(ARM_C_OBJ)
 
-ARM64_OBJ := $(C_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/arm64/%.o)
+ARM64_OBJ   := $(call map_arm64_obj,$(C_SOURCES) $(COMMON_SRCS))
 
 ARM_ELF   := $(BUILD_DIR)/arm/hakujoudai.elf
 ARM_BIN   := $(OUT_ARM).bin
@@ -70,6 +77,10 @@ $(BUILD_DIR)/arm/%.o: $(SRC_DIR)/%.c
 	mkdir -p $(@D)
 	$(CC_ARM) $(CFLAGS_ARM) -c $< -o $@
 
+$(BUILD_DIR)/arm/common/%.o: $(COMMON_DIR)/%.c
+	mkdir -p $(@D)
+	$(CC_ARM) $(CFLAGS_ARM) -c $< -o $@
+
 arm64: $(ARM64_BIN)
 
 $(ARM64_BIN): $(ARM64_ELF)
@@ -79,6 +90,10 @@ $(ARM64_ELF): $(ARM64_OBJ)
 	$(LD_ARM64) $(LDFLAGS_ARM64) -o $@ $^ $(LIBS_ARM64)
 
 $(BUILD_DIR)/arm64/%.o: $(SRC_DIR)/%.c
+	mkdir -p $(@D)
+	$(CC_ARM64) $(CFLAGS_ARM64) -c $< -o $@
+
+$(BUILD_DIR)/arm64/common/%.o: $(COMMON_DIR)/%.c
 	mkdir -p $(@D)
 	$(CC_ARM64) $(CFLAGS_ARM64) -c $< -o $@
 

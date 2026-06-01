@@ -3,21 +3,27 @@
  * SPDX-FileCopyrightText: 2026 Shomy, R0rt1z2
  */
 
-#include <stdint.h>
-#include <stddef.h>
-
+#include <types.h>
 #include <libc.h>
+#include <pointers.h>
 #include <debug.h>
 #include <heap.h>
 #include <logo.h>
 #include <commands.h>
 
-static void (*const volatile register_major_command)(const char *, const char *, HHANDLE) = (void *)0x11111111;
-static void (*const volatile dagent_command_loop2)(void) = (void *)0x22222222;
-static volatile uintptr_t heap_struct = 0x33333333;
-
 __attribute__((section(".text.start"))) void main(void)
 {
+
+    // Initialize the pointer table, so we can use
+    // printf, fix the heap and go back the command loop
+    if (init_pointers() != 0) {
+        return;
+    }
+
+    // Set up the printf callbacks so the log gets dispatched
+    // to UART
+    printf_register_cb(uart_putc);
+
     printf("%s", banner);
 
     heap_dump(heap_struct);
