@@ -3,9 +3,10 @@
  * SPDX-FileCopyrightText: 2026 Shomy
  */
 
-#include <stdint.h>
-#include <stddef.h>
-#include <inttypes.h>
+#include <types.h>
+#include <crypto/ssr/registers.h>
+#include <debug.h>
+#include <security/sej.h>
 #include <mmio.h>
 #include <drivers/uart.h>
 #include <crypto/tzcc.h>
@@ -15,7 +16,6 @@
 #include <da.h>
 #include <protocol_functions.h>
 #include <commands.h>
-#include <sej.h>
 #include <nanoprintf.h>
 
 #ifdef __aarch64__
@@ -23,12 +23,6 @@
 #include <crypto/ssr/ssr.h>
 
 #endif
-
-int cb_opaque(void*) {
-    return 2;
-}
-
-#define CB_OPAQUE cb_opaque
 
 volatile da_ctx_t g_da_ctx;
 
@@ -58,35 +52,35 @@ int cmd_ack(struct com_channel_struct *channel, const char*) {
         (unsigned int)(uintptr_t)mmc_get_card
     );
 
-    status = upload(channel, target_file, ack_xml, (uint32_t)len, "ACK");
+    status = upload(channel, target_file, ack_xml, (u32)len, "ACK");
 
     return status;
 }
 
 int cmd_da_ctx(struct com_channel_struct *channel, const char* xml) {
     int status = STATUS_OK;
-    void *tree;
+    xml_parser_t tree;
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/tzcc_base", "da/arg/ssr_base",
+    XML_LOAD(tree, xml, "da/arg/tzcc_base", "da/arg/ssr_base",
                         "da/arg/sej_base", "da/arg/usb_log",
                         "da/arg/storage", "da/arg/da2_base",
                         "da/arg/da2_size", NULL);
 
-    uintptr_t sej_base  = atoull(get_node_text(tree, "da/arg/sej_base"));
-    uintptr_t tzcc_base = atoull(get_node_text(tree, "da/arg/tzcc_base"));
-    uint32_t da2_addr  = atoull(get_node_text(tree, "da/arg/da2_base"));
-    uint32_t da2_size   = atoull(get_node_text(tree, "da/arg/da2_size"));
-    const char* storage = get_node_text(tree, "da/arg/storage");
-    bool usb_log = (strcmp(get_node_text(tree, "da/arg/usb_log"), "yes") == 0);
+    uintptr_t sej_base  = XML_ATOULL(tree, "da/arg/sej_base");
+    uintptr_t tzcc_base = XML_ATOULL(tree, "da/arg/tzcc_base");
+    u32 da2_addr  = XML_ATOULL(tree, "da/arg/da2_base");
+    u32 da2_size   = XML_ATOULL(tree, "da/arg/da2_size");
+    const char* storage = XML_TEXT(tree, "da/arg/storage");
+    bool usb_log = XML_IS_YES(tree, "da/arg/usb_log");
 
 #ifdef __aarch64__
-    uintptr_t ssr_base = atoull(get_node_text(tree, "da/arg/ssr_base"));
+    uintptr_t ssr_base = XML_ATOULL(tree, "da/arg/ssr_base");
     set_ssr_base(ssr_base);
 #endif
 
-    set_sej_base(sej_base);
+    sej_init(sej_base);
     set_tzcc_base(tzcc_base);
 
     if (usb_log) {
@@ -98,8 +92,7 @@ int cmd_da_ctx(struct com_channel_struct *channel, const char* xml) {
     printf("TZCC base: 0x%08" PRIx32 "\n", tzcc_base);
 
     storage_type storage_type_enum;
-    if (strcmp(storage, "EMMC") == 0) {
-        printf("Storage type: eMMC\n");
+    if (strncmp(storage, "EMMC", 4) == 0) {   printf("Storage type: eMMC\n");
         storage_type_enum = STORAGE_EMMC;
         rpmb_mmc_setup(mmc_get_card);
     } else {
@@ -116,8 +109,6 @@ int cmd_da_ctx(struct com_channel_struct *channel, const char* xml) {
         .usb_log = usb_log,
     };
 
-    MXMLDELETE(tree);
-
     printf("DA context setup complete!\n");
 
     return status;
@@ -126,65 +117,63 @@ int cmd_da_ctx(struct com_channel_struct *channel, const char* xml) {
 int cmd_readmem(struct com_channel_struct *channel, const char* xml) {
     int status = STATUS_OK;
     const char *target_file = "readmem.bin";
-    void *tree;
+    xml_parser_t tree;
     uintptr_t address;
     u32 length;
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/address", "da/arg/length", NULL);
+    XML_LOAD(tree, xml, "da/arg/address", "da/arg/length", NULL);
 
-    address = atoull(get_node_text(tree, "da/arg/address"));
-    length = atoull(get_node_text(tree, "da/arg/length"));
+    address = XML_ATOULL(tree, "da/arg/address");
+    length = XML_ATOULL(tree, "da/arg/length");
 
     printf("ReadMem: address=0x%08lx length=0x%08x\n", address, length);
 
     status = upload(channel, target_file, (const char*)address, length, "memory read");
 
-    MXMLDELETE(tree);
     return status;
 }
 
 int cmd_writemem(struct com_channel_struct *channel, const char* xml) {
     int status = STATUS_OK;
     const char *source_file = "writemem.bin";
-    void *tree;
+    xml_parser_t tree;
     char *address;
-    uint32_t length;
+    u32 length;
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/address", "da/arg/length", NULL);
+    XML_LOAD(tree, xml, "da/arg/address", "da/arg/length", NULL);
 
-    address = (char *)(uintptr_t)atoull(get_node_text(tree, "da/arg/address"));
-    length = atoull(get_node_text(tree, "da/arg/length")) + 4; // +4 or download fails on '*pdata_len <= total_length'
+    address = (char *)(uintptr_t)XML_ATOULL(tree, "da/arg/address");
+    length = XML_ATOULL(tree, "da/arg/length") + 4; // +4 or download fails on '*pdata_len <= total_length'
 
     printf("WriteMem: address=0x%08lx length=0x%08x\n", (uintptr_t)address, length);
 
     status = download(channel, source_file, &address, &length, "memory write");
 
-    MXMLDELETE(tree);
     return status;
 }
 
 int cmd_readregister(struct com_channel_struct *channel, const char *xml) {
     int status = STATUS_OK;
     const char *target_file = "readreg.bin";
-    void *tree;
+    xml_parser_t tree;
     uintptr_t address;
     char read_reg_xml[128];
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/address", NULL);
+    XML_LOAD(tree, xml, "da/arg/address", NULL);
 
-    address = atoull(get_node_text(tree, "da/arg/address"));
+    address = XML_ATOULL(tree, "da/arg/address");
 
     printf("ReadRegister: address=0x%08" PRIxPTR "\n", address);
 
-    uint32_t value = readl(address);
+    u32 value = readl(address);
 
-    uint32_t len = npf_snprintf(read_reg_xml, sizeof(read_reg_xml),
+    u32 len = npf_snprintf(read_reg_xml, sizeof(read_reg_xml),
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<register>"
         "<address>0x%08" PRIxPTR "</address>"
@@ -195,29 +184,27 @@ int cmd_readregister(struct com_channel_struct *channel, const char *xml) {
 
     status = upload(channel, target_file, read_reg_xml, len, "register read");
 
-    MXMLDELETE(tree);
     return status;
 }
 
 int cmd_writeregister(struct com_channel_struct *channel, const char *xml) {
     (void)channel;
     int status = STATUS_OK;
-    void *tree;
+    xml_parser_t tree;
     uintptr_t address;
-    uint32_t value;
+    u32 value;
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/address", "da/arg/value", NULL);
+    XML_LOAD(tree, xml, "da/arg/address", "da/arg/value", NULL);
 
-    address = atoull(get_node_text(tree, "da/arg/address"));
-    value = atoull(get_node_text(tree, "da/arg/value"));
+    address = XML_ATOULL(tree, "da/arg/address");
+    value = XML_ATOULL(tree, "da/arg/value");
 
     printf("WriteRegister: address=0x%08lx value=0x%08x\n", address, value);
 
     writel(value, address);
 
-    MXMLDELETE(tree);
     return status;
 }
 
@@ -225,10 +212,10 @@ int cmd_key_derive(struct com_channel_struct *channel, const char *xml) {
     (void)channel;
     int status = STATUS_OK;
     KeyType type = RPMB_KEY;
-    uint8_t key[32] __attribute__((aligned(16))) = {0};
+    u8 key[32] __attribute__((aligned(16))) = {0};
     char key_hex[65];
-    uint32_t key_length = 0x20;
-    void *tree;
+    u32 key_length = 0x20;
+    xml_parser_t tree;
     const char *key_type;
     char key_derive_xml[256];
     const char *key_derive_fmt =
@@ -240,15 +227,15 @@ int cmd_key_derive(struct com_channel_struct *channel, const char *xml) {
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/key_type", NULL);
+    XML_LOAD(tree, xml, "da/arg/key_type", NULL);
 
-    key_type = get_node_text(tree, "da/arg/key_type");
+    key_type = XML_TEXT(tree, "da/arg/key_type");
 
     printf("Key Derive: type=%s\n", key_type);
 
-    if (strcmp(key_type, "RPMB") == 0) {
+    if (strncmp(key_type, "RPMB", 4) == 0) {
         type = RPMB_KEY;
-    } else if (strcmp(key_type, "FDE") == 0) {
+    } else if (strncmp(key_type, "FDE", 3) == 0) {
         type = FDE_KEY;
         key_length = 0x10;
     } else {
@@ -262,7 +249,7 @@ int cmd_key_derive(struct com_channel_struct *channel, const char *xml) {
 
     bytes_to_hex(key, key_length, key_hex);
 
-    uint32_t len = npf_snprintf(key_derive_xml, sizeof(key_derive_xml),
+    u32 len = npf_snprintf(key_derive_xml, sizeof(key_derive_xml),
         key_derive_fmt,
         key_type, key_hex
     );
@@ -275,27 +262,41 @@ end:
 
 
 int cmd_sej_aes(struct com_channel_struct *channel, const char* xml) {
-    #define AES_MAX_LEN 4096
+    // V6 can handle it
+    #define AES_MAX_LEN 0x800000
+
     int status = STATUS_OK;
     const char *source_file = "sej_aes.bin";
-    uint32_t data_length = 0;
+    u32 data_length = 0;
     void* data_buf = NULL;
-    void *tree;
+    xml_parser_t tree;
     bool anti_clone;
     bool encrypt;
-    bool legacy;
+    sej_param_t params = {0};
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/encrypt", "da/arg/legacy", "da/arg/ac", NULL);
+    XML_LOAD(tree, xml, "da/arg/encrypt", "da/arg/ac", NULL);
 
-    encrypt    = (strcmp(get_node_text(tree, "da/arg/encrypt"), "yes") == 0);
-    legacy     = (strcmp(get_node_text(tree, "da/arg/legacy"), "yes") == 0);
-    anti_clone = (strcmp(get_node_text(tree, "da/arg/ac"),     "yes") == 0);
+    encrypt    = XML_IS_YES(tree, "da/arg/encrypt");
+    anti_clone = XML_IS_YES(tree, "da/arg/ac");
 
-    printf("SEJ AES: encrypt=%d legacy=%d anti_clone=%d\n", encrypt, legacy, anti_clone);
+    // Default parameters, perhaps we can consider adding more options in future.
+    params.key_id = AES_SW_KEY;
+    params.key_sz = AES_KEY_256;
+    params.mode = AES_CBC_MODE;
+
+    hexdump((void*)&params, sizeof(sej_param_t), 0);
+
+    printf("SEJ AES: encrypt=%d anti_clone=%d\n", encrypt, anti_clone);
 
     status = download(channel, source_file, (char**)&data_buf, &data_length, "SEJ AES data");
+
+    params.length = data_length;
+    params.anti_clone = anti_clone;
+    params.encrypt = encrypt;
+
+    hexdump((void*)&params, sizeof(sej_param_t), 0);
 
     printf("SEJ AES: download status=%d data_buf=%p data_length=0x%08x\n",
         status, data_buf, data_length);
@@ -313,9 +314,9 @@ int cmd_sej_aes(struct com_channel_struct *channel, const char* xml) {
     }
 
     if (encrypt)
-        sp_sej_enc(data_buf, data_buf, data_length, anti_clone, legacy);
+        sp_sej_enc(data_buf, data_buf, params);
     else
-        sp_sej_dec(data_buf, data_buf, data_length, anti_clone, legacy);
+        sp_sej_dec(data_buf, data_buf, params);
 
     status = upload(channel, source_file, (const char*)data_buf, data_length, "SEJ AES result");
 
@@ -325,7 +326,6 @@ free:
     if (data_buf)
         free(data_buf);
 end:
-    MXMLDELETE(tree);
     printf("SEJ AES: done, status=%d\n", status);
     return status;
 }
@@ -336,16 +336,16 @@ int cmd_rpmb_init(struct com_channel_struct *channel, const char *xml) {
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
     int status = STATUS_OK;
-    void *tree;
+    xml_parser_t tree;
 
-    uint32_t rpmb_part;
-    uint8_t rpmbkey[32];
+    u32 rpmb_part;
+    u8 rpmbkey[32];
     const char *key_hex;
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/partition", "da/arg/key", NULL);
+    XML_LOAD(tree, xml, "da/arg/partition", "da/arg/key", NULL);
 
-    rpmb_part = atoull(get_node_text(tree, "da/arg/partition"));
-    key_hex   = get_node_text(tree, "da/arg/key");
+    rpmb_part = XML_ATOULL(tree, "da/arg/partition");
+    key_hex   = XML_TEXT(tree, "da/arg/key");
 
     printf("RPMB Init: partition=%u\n", rpmb_part);
 
@@ -382,7 +382,6 @@ int cmd_rpmb_init(struct com_channel_struct *channel, const char *xml) {
     }
 
 end:
-    MXMLDELETE(tree);
     return status;
 }
 
@@ -390,16 +389,16 @@ int cmd_rpmb_read(struct com_channel_struct *channel, const char *xml) {
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
     int status = STATUS_OK;
-    void *tree;
-    uint32_t rpmb_part;
-    uint32_t start_sector;
-    uint32_t sector_count;
+    xml_parser_t tree;
+    u32 rpmb_part;
+    u32 start_sector;
+    u32 sector_count;
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/partition", "da/arg/start_sector", "da/arg/sectors_count", NULL);
+    XML_LOAD(tree, xml, "da/arg/partition", "da/arg/start_sector", "da/arg/sectors_count", NULL);
 
-    rpmb_part = (uint32_t)atoull(get_node_text(tree, "da/arg/partition"));
-    start_sector = (uint32_t)atoull(get_node_text(tree, "da/arg/start_sector"));
-    sector_count = (uint32_t)atoull(get_node_text(tree, "da/arg/sectors_count"));
+    rpmb_part = (u32)XML_ATOULL(tree, "da/arg/partition");
+    start_sector = (u32)XML_ATOULL(tree, "da/arg/start_sector");
+    sector_count = (u32)XML_ATOULL(tree, "da/arg/sectors_count");
 
     if (g_da_ctx.storage == STORAGE_UNKNOWN) {
         printf("Storage type unknown, cannot read RPMB!\n");
@@ -413,7 +412,7 @@ int cmd_rpmb_read(struct com_channel_struct *channel, const char *xml) {
         goto end;
     }
 
-    uint32_t data_len = sector_count * RPMB_DATA_SZ;
+    u32 data_len = sector_count * RPMB_DATA_SZ;
     printf("RPMB: Reading 0x%" PRIx32 " bytes from partition %u, starting at sector %u\n", data_len, rpmb_part, start_sector);
 
     struct rpmb_stream_ctx rctx = { .rpmb_part = rpmb_part, .start_sector = start_sector };
@@ -428,7 +427,6 @@ int cmd_rpmb_read(struct com_channel_struct *channel, const char *xml) {
     }
 
 end:
-    MXMLDELETE(tree);
     return status;
 }
 
@@ -436,16 +434,16 @@ int cmd_rpmb_write(struct com_channel_struct *channel, const char *xml) {
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
     int status = STATUS_OK;
-    void *tree;
-    uint32_t rpmb_part;
-    uint32_t start_sector;
-    uint32_t sector_count;
+    xml_parser_t tree;
+    u32 rpmb_part;
+    u32 start_sector;
+    u32 sector_count;
 
-    MXML_LOAD(tree, xml, CB_OPAQUE, "da/arg/partition", "da/arg/start_sector", "da/arg/sectors_count", NULL);
+    XML_LOAD(tree, xml, "da/arg/partition", "da/arg/start_sector", "da/arg/sectors_count", NULL);
 
-    rpmb_part = (uint32_t)atoull(get_node_text(tree, "da/arg/partition"));
-    start_sector = (uint32_t)atoull(get_node_text(tree, "da/arg/start_sector"));
-    sector_count = (uint32_t)atoull(get_node_text(tree, "da/arg/sectors_count"));
+    rpmb_part = (u32)XML_ATOULL(tree, "da/arg/partition");
+    start_sector = (u32)XML_ATOULL(tree, "da/arg/start_sector");
+    sector_count = (u32)XML_ATOULL(tree, "da/arg/sectors_count");
 
     if (g_da_ctx.storage == STORAGE_UNKNOWN) {
         printf("Storage type unknown, cannot write RPMB!\n");
@@ -459,7 +457,7 @@ int cmd_rpmb_write(struct com_channel_struct *channel, const char *xml) {
         goto end;
     }
 
-    uint32_t data_len = sector_count * RPMB_DATA_SZ;
+    u32 data_len = sector_count * RPMB_DATA_SZ;
     printf("RPMB: Writing 0x%" PRIx32 " bytes to partition %u, starting at sector %u\n", data_len, rpmb_part, start_sector);
 
     struct rpmb_stream_ctx rctx = { .rpmb_part = rpmb_part, .start_sector = start_sector };
@@ -474,6 +472,5 @@ int cmd_rpmb_write(struct com_channel_struct *channel, const char *xml) {
     }
 
 end:
-    MXMLDELETE(tree);
     return status;
 }

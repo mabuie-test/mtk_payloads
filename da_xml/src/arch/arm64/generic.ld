@@ -20,6 +20,12 @@ SECTIONS
     *(.data*)
   }
 
+  .pointers_table ALIGN(4) : {
+    __pointers_start = .;
+    KEEP(*(.pointer_table))
+    __pointers_end = .;
+  }
+
   .bss ALIGN(32) : {
       __bss_start = .;
       *(.bss*)

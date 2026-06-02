@@ -9,29 +9,27 @@ CC_ARM64      := $(CROSS_COMPILE_64)gcc
 OBJCOPY_ARM64 := $(CROSS_COMPILE_64)objcopy
 SIZE_ARM64    := $(CROSS_COMPILE_64)size
 
-FEATURES   := uart crypto rpmb mmc mmc_rpmb crypto_ssr
+FEATURES   := uart xml crypto rpmb mmc mmc_rpmb crypto_ssr
 COMMON_DIR := ../common
 
-include $(COMMON_DIR)/common.mk
 
-LIBSEJ_DIR := ../libsej
 OUTPUT_DIR := ../payloads
 BUILD_DIR  := build
 
 DA_XML_SRCS := \
 	src/main.c \
 	src/commands.c \
-	src/protocol_functions.c \
-	src/xml.c
+	src/protocol_functions.c
 
-LIBSEJ_SRCS := $(LIBSEJ_DIR)/src/sej.c
+O3_SRCS := $(DA_XML_SRCS)
 
-ALL_SRCS := $(DA_XML_SRCS) $(LIBSEJ_SRCS) $(COMMON_SRCS)
+include $(COMMON_DIR)/common.mk
+
+ALL_SRCS := $(DA_XML_SRCS) $(COMMON_SRCS)
 
 CFLAGS := $(COMMON_CFLAGS) \
 	-Iinclude \
 	-Ilib \
-	-I$(LIBSEJ_DIR)/include \
 	$(COMMON_INCLUDES)
 
 LDFLAGS := $(COMMON_LDFLAGS) -lgcc
@@ -73,15 +71,7 @@ $(ARM_ELF): $(ARM_OBJS)
 
 $(BUILD_DIR)/arm/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC_ARM) $(CFLAGS_ARM) -c $< -o $@
-
-$(BUILD_DIR)/arm/common/%.o: $(COMMON_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(CC_ARM) $(CFLAGS_ARM) -c $< -o $@
-
-$(BUILD_DIR)/arm/libsej/%.o: $(LIBSEJ_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(CC_ARM) $(CFLAGS_ARM) -c $< -o $@
+	$(CC_ARM) $(CFLAGS_ARM) $(EXTRA_CFLAGS) -c $< -o $@
 
 $(ARM64_BIN): $(ARM64_ELF)
 	@mkdir -p $(dir $@)
@@ -95,15 +85,12 @@ $(ARM64_ELF): $(ARM64_OBJS)
 
 $(BUILD_DIR)/aarch64/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC_ARM64) $(CFLAGS_ARM64) -c $< -o $@
+	$(CC_ARM64) $(CFLAGS_ARM64) $(EXTRA_CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/aarch64/common/%.o: $(COMMON_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(CC_ARM64) $(CFLAGS_ARM64) -c $< -o $@
 
-$(BUILD_DIR)/aarch64/libsej/%.o: $(LIBSEJ_DIR)/%.c
-	@mkdir -p $(dir $@)
-	$(CC_ARM64) $(CFLAGS_ARM64) -c $< -o $@
+$(eval $(call common_build_rule,$(BUILD_DIR)/arm,$(CC_ARM),$(CFLAGS_ARM)))
+$(eval $(call common_build_rule,$(BUILD_DIR)/aarch64,$(CC_ARM64),$(CFLAGS_ARM64)))
+
 
 clean:
 	rm -rf $(BUILD_DIR)

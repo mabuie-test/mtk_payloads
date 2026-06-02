@@ -9,6 +9,11 @@ SECTIONS
   .text     : { *(.text.main) *(.text   .text.*   .gnu.linkonce.t.*) }
   .rodata   : { *(.rodata .rodata.* .gnu.linkonce.r.*) }
   .data     : { *(.data   .data.*   .gnu.linkonce.d.*) }
+  .pointers_table ALIGN(4) : {
+    __pointers_start = .;
+    KEEP(*(.pointer_table))
+    __pointers_end = .;
+  }
   .bss      : {
     __bss_start = .;
     *(.bss    .bss.*    .gnu.linkonce.b.*) *(COMMON)
