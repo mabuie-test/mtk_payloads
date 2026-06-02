@@ -20,6 +20,10 @@
           pkgs.git
           pkgs.python3
           pkgs.gnumake
+          pkgs.clang
+          pkgs.llvm
+          pkgs.lld
+          pkgs.cmake
           frostix.gcc-toolchain.gcc-arm-linux-gnueabihf-12
           frostix.gcc-toolchain.gcc-aarch64-linux-gnu
         ];
