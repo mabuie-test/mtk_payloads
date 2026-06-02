@@ -15,7 +15,9 @@ extern void *(*volatile malloc)(size_t size);
 
 #endif
 
+#ifndef XML_STACK_SIZE
 #define XML_STACK_SIZE 4096
+#endif
 
 #ifdef XML_ALLOC
 static u8* g_xml_stack = NULL;
