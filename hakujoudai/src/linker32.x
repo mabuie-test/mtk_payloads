@@ -47,12 +47,6 @@ SECTIONS
         . = ALIGN(4);
     }
 
-    .pointers_table ALIGN(4) : {
-        __pointers_start = .;
-        KEEP(*(.pointer_table))
-        __pointers_end = .;
-    }
-
     .bss : {
         __bss_start = .;
         *(.bss .bss.* .gnu.linkonce.b.*)
@@ -60,6 +54,13 @@ SECTIONS
         . = ALIGN(4);
         __bss_end = .;
     }
+
+    .pointers_table ALIGN(4) : {
+        __pointers_start = .;
+        KEEP(*(.pointer_table))
+        __pointers_end = .;
+    }
+
 
     . = ALIGN(4);
     __payload_end = .;

@@ -21,6 +21,7 @@ OUT_ARM64 := ../payloads/hakujoudai_arm64
 CFLAGS_COMMON := $(COMMON_CFLAGS) -Os -fno-builtin -fno-strict-aliasing
 CFLAGS_COMMON += -fvisibility=hidden
 CFLAGS_COMMON += -Isrc/include -Wno-main
+CFLAGS_COMMON += -DXML_STACK_SIZE=512
 
 ifeq ($(DEBUG),1)
 CFLAGS_COMMON += -DDEBUG
