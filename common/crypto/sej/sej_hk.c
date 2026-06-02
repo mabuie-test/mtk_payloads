@@ -82,6 +82,18 @@ void SEJ_V3_init(AES_OPS encrypt, const u32* iv) {
 
     if (!g_sej_ctx.legacy) {
         sej_aes_kdf(true);
+        /* The original implementation just inlines
+         * the KDF and directly assigns BK2C on ACONK.
+         * However, I just called `sej_aes_kdf` here for
+         * avoiding repetition.
+         *
+         * However, the original implementation assigns
+         * BK2C only to ACONK, so this makes sure that
+         * R2K is not used during AES operation, which
+         * causes the data to have the feedback of SEJ
+         * internal algorithm.
+         */
+        writel(readl(SEJ_ACONK) & ~SEJ_AES_R2K, SEJ_ACONK);
     } else {
         /* Derive a pattern HUK */
         for (uint32_t i = 0; i < 3; i++) {
