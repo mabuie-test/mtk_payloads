@@ -145,18 +145,18 @@ static inline volatile uint32_t* SEJ_REG(uint32_t offset) {
 typedef enum {
 	AES_ECB_MODE,
 	AES_CBC_MODE
-} AES_MODE;
+} __attribute__((packed)) AES_MODE;
 
 typedef enum {
 	AES_DEC,
 	AES_ENC
-} AES_OPS;
+} __attribute__((packed)) AES_OPS;
 
 typedef enum {
 	AES_KEY_128 = 0,
 	AES_KEY_192 = 1,
 	AES_KEY_256 = 2,
-} AES_KEY_SZ;
+} __attribute__((packed)) AES_KEY_SZ;
 
 typedef enum {
 	AES_SW_KEY,
@@ -164,7 +164,7 @@ typedef enum {
 	AES_HW_WRAP_KEY,
 	AES_RID_KEY,
 	AES_CUSTOM_KEY
-} AES_KEY_ID;
+} __attribute__((packed)) AES_KEY_ID;
 
 typedef struct {
 	unsigned char config[AES_CFG_SZ];
