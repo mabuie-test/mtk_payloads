@@ -4,6 +4,7 @@
  */
 
 #include <types.h>
+#include <mmio.h>
 #include <libc.h>
 #include <debug.h>
 #include <crypto/tzcc.h>
@@ -75,7 +76,6 @@ int cmd_readmem(com_channel_struct *channel) {
     address_range_t range = {0};
     u32 range_size = sizeof(range);
 
-
     status = channel->read((u8*)&range, &range_size);
     channel->write((u8*)&status, 4);
     if (status != 0) {
@@ -99,8 +99,6 @@ int cmd_writemem(com_channel_struct *channel) {
     address_range_t range = {0};
     u32 range_size = sizeof(range);
 
-
-
     status = channel->read((u8*)&range, &range_size);
     channel->write((u8*)&status, 4);
     if (status != 0) {
@@ -122,11 +120,18 @@ int cmd_readregister(com_channel_struct *channel) {
     int status = 0;
     u32 reg_addr = 0;
     u32 size = 4;
+    u32 value = 0;
+
+    status = channel->read((u8*)&reg_addr, &size);
+    channel->write((u8*)&status, 4);
+
+    reg_addr &= ~0x3;
 
     printf("Reading register: address=0x%08" PRIx32 "\n", reg_addr);
 
-    status = channel->read((u8*)&reg_addr, &size);
-    return channel->write((u8*)&status, 4);
+    value = readl((void*)(uptr)reg_addr);
+
+    return channel->write((u8*)&value, 4);
 }
 
 int cmd_writeregister(com_channel_struct *channel) {
@@ -140,7 +145,11 @@ int cmd_writeregister(com_channel_struct *channel) {
     status = channel->read((u8*)&reg_addr, &size);
     status = channel->read((u8*)&reg_value, &size);
 
+    reg_addr &= ~0x3;
+
     printf("Writing register: address=0x%08" PRIx32 " value=0x%08" PRIx32 "\n", reg_addr, reg_value);
+
+    writel(reg_value, (void*)(uptr)reg_addr);
 
     return channel->write((u8*)&status, 4);
 }
