@@ -32,6 +32,9 @@
 #define STATUS_RPMB_KEY_INVALID             (MAKE_CODE(SEV_ERROR, FACILITY_EXTENSIONS, 0x08))
 #define STATUS_RPMB_STORAGE_NOT_SUPPORTED   (MAKE_CODE(SEV_ERROR, FACILITY_EXTENSIONS, 0x09))
 
+#define STATUS_INVALID_KEY_LENGTH           (MAKE_CODE(SEV_ERROR, FACILITY_EXTENSIONS, 0x0A))
+#define STATUS_INVALID_KEY_SOURCE           (MAKE_CODE(SEV_ERROR, FACILITY_EXTENSIONS, 0x0B))
+
 extern com_channel_struct* g_com_channel;
 
 extern void *(* volatile malloc)(size_t size);

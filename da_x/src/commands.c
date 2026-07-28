@@ -158,23 +158,63 @@ int cmd_key_derive(com_channel_struct *channel) {
     printf("\n\n*** Enter %s cmd ***\n\n", __func__);
 
     int status = 0;
-    u32 length = 4;
+    u32 length = sizeof(u32);
     u8 key[32] __attribute__((aligned(16))) = {0};
     u32 key_length = 0x20;
     int key_type = 0;
 
     status = channel->read((u8*)&key_type, &length);
-    channel->write((u8*)&status, length);
+    if (status != 0) return status;
 
-    if (key_type == FDE_KEY) {
-        key_length = 0x10;
+    status = channel->read((u8*)&key_length, &length);
+    if (status != 0) return status;
+
+    if (key_length > sizeof(key) || (key_length != 0x10 && key_length != 0x20 && key_length != 0x18)) {
+        printf("%s: Invalid key output length 0x%" PRIx32 "\n", __func__, key_length);
+        status = STATUS_INVALID_KEY_LENGTH;
+        channel->write((u8*)&status, length);
+        return status;
     }
 
-    printf("Deriving key of type %d\n", key_type);
+    if (key_type == INPUT_KEY) {
+        u8 label[32] = {0};
+        u8 salt[32] = {0};
+        u32 label_len = 0;
+        u32 salt_len = 0;
 
+        status = channel->read((u8*)&label_len, &length);
+        status = channel->read((u8*)&salt_len, &length);
+
+        if (label_len > sizeof(label) || salt_len > sizeof(salt)) {
+            printf("%s: label_len (%" PRIu32 ") or salt_len (%" PRIu32 ") exceeds max 32\n",
+                   __func__, label_len, salt_len);
+            status = STATUS_INVALID_KEY_SOURCE;
+            channel->write((u8*)&status, length);
+            return status;
+        }
+
+        status = channel->read(label, &label_len);
+        status = channel->read(salt, &salt_len);
+
+        channel->write((u8*)&status, length);
+
+        status = key_derive_input(label, label_len, salt, salt_len, key, key_length);
+        if (status == 0) {
+            channel->write(key, key_length);
+        }
+        return status;
+    }
+
+    channel->write((u8*)&status, length);
+
+    printf("Deriving key of type %d\n", key_type);
     status = (int)key_derive(key_type, key, key_length);
 
-    return channel->write(key, key_length);
+    if (status == 0) {
+        channel->write(key, key_length);
+    }
+
+    return status;
 }
 
 int cmd_sej_aes(com_channel_struct *channel) {
