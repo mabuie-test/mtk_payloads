@@ -4,7 +4,7 @@ DIRS=(
     da_x
     da_xml
     extloader
-    secpatcher
+    brom_defuse
     hakujoudai
 )
 

@@ -1,13 +1,12 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-or-later
- * SPDX-FileCopyrightText: (c) 2025 Shomy
+ * SPDX-FileCopyrightText: (c) 2025-2026 Shomy
  *
  * Based on the work of bkerler and k4y0z (c) 2021, GPLv3
  */
 
 #include <stdint.h>
-
-#define NULL ((void*)0)
+#include <stddef.h>
 
 #define UART_BASE_DEFAULT 0x11002000
 // Constants taken from kaeru:
@@ -17,7 +16,7 @@
 #define UART_LSR_THRE   0x20
 
 // Sent before and after patching
-#define ACK 0xA4A3A2A1
+#define ACK 0x00000000
 
 /*
  * LOG FORMAT for debugging:
@@ -33,10 +32,6 @@
 #else
 #define LOG(x)
 #endif
-
-// Handshake again after patching
-// Not strictly necessary, but useful for synchronization
-static const uint8_t HSK[] = {0xA0, 0x0A, 0x50, 0x05};
 
 typedef struct {
     uint32_t brom_base;
@@ -316,7 +311,7 @@ __attribute__ ((section(".text.main"))) int main(){
     }
 
     LOG("B:ACK");
-    g_ctx.usbdl_put_data(&ack, 4);
+    g_ctx.usbdl_put_word(ack);
     LOG("A:ACK");
 
     find_sec_regs(g_ctx.brom_start, g_ctx.brom_end);
@@ -343,36 +338,10 @@ __attribute__ ((section(".text.main"))) int main(){
 
     find_cmdhandler();
 
-    LOG("B:ACK");
-    g_ctx.usbdl_put_data(&ack, 4);
-    LOG("A:ACK");
-
     /* Finally, invalidate the cache */
     LOG("B:ICACHE");
     asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0));
     LOG("A:ICACHE");
-
-    /* Handshake again */
-    LOG("B:HSK");
-    unsigned int hsk_index = 0;
-    unsigned char hsk_byte = 0;
-
-    do {
-        while (1) {
-            g_ctx.usbdl_get_data(&hsk_byte, 1);
-            if (HSK[hsk_index] == hsk_byte) {
-                break;
-            }
-            hsk_index = 0;
-            LOG("F:HSK");
-        }
-
-        hsk_byte = ~hsk_byte;
-        g_ctx.usbdl_put_data(&hsk_byte, 1);
-        hsk_index += 1;
-        LOG("A:HSKB");
-    } while (hsk_index != 4);
-    LOG("O:HSK");
 
     return g_ctx.cmd_handler();
 }
