@@ -6,7 +6,7 @@
 #ifndef KEY_DERIVE_H
 #define KEY_DERIVE_H
 
-#include <stdint.h>
+#include <types.h>
 #include <crypto/sbrom/sbrom.h>
 
 typedef enum {
@@ -19,17 +19,20 @@ typedef enum {
     CUSTOM_1 = 6, // BASE_KEY (not sure for what it is)
     UNKNOWN_0 = 7, // Unknown, from Goya pl
     UNKNOWN_1 = 8, // Unknown too
+
+    INPUT_KEY = 0xFF // Input Key
 } KeyType;
 
 typedef struct {
-    uint32_t src_key;
-    uint8_t* label;
-    uint32_t label_sz;
-    uint8_t* salt;
-    uint32_t salt_sz;
-    uint32_t policy; // 22
+    u32 src_key;
+    u8* label;
+    u32 label_sz;
+    u8* salt;
+    u32 salt_sz;
+    u32 policy; // 22
 } key_attr_t;
 
-uint32_t key_derive(KeyType key_type, uint8_t *out, uint32_t len);
+u32 key_derive(KeyType key_type, u8 *out, u32 len);
+u32 key_derive_input(u8 *label, u32 label_sz, u8 *salt, u32 salt_sz, u8 *out, u32 len);
 
 #endif /* KEY_DERIVE_H */
