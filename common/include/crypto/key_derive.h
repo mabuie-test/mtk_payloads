@@ -32,6 +32,7 @@ typedef struct {
     u32 policy; // 22
 } key_attr_t;
 
+KeyType key_type_from_str(const char *str);
 u32 key_derive(KeyType key_type, u8 *out, u32 len);
 u32 key_derive_input(u8 *label, u32 label_sz, u8 *salt, u32 salt_sz, u8 *out, u32 len);
 

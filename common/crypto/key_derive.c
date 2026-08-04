@@ -120,6 +120,22 @@ key_attr_t key_attr_table[] = {
     },
 };
 
+KeyType key_type_from_str(const char *str) {
+    if (str == NULL) return INPUT_KEY;
+
+    if (strcmp(str, "RPMB") == 0) return RPMB_KEY;
+    if (strcmp(str, "FDE") == 0) return FDE_KEY;
+    if (strcmp(str, "TEE") == 0) return TEE_KEY;
+    if (strcmp(str, "AES_IMG_ENC") == 0) return AES_IMG_ENC;
+    if (strcmp(str, "AES_CUSTOM") == 0) return AES_CUSTOM;
+    if (strcmp(str, "MOTOROLA") == 0) return CUSTOM_0;
+    if (strcmp(str, "ROT") == 0) return CUSTOM_1;
+    if (strcmp(str, "UNKNOWN_0") == 0) return UNKNOWN_0;
+    if (strcmp(str, "UNKNOWN_1") == 0) return UNKNOWN_1;
+
+    return INPUT_KEY;
+}
+
 u32 key_derive(KeyType key_type, u8* out, u32 len) {
     if (key_type >= sizeof(key_attr_table) / sizeof(key_attr_t)) {
         printf("%s: key_type=%d out of range (max=%zu)\n", __func__, key_type, sizeof(key_attr_table) / sizeof(key_attr_t));
