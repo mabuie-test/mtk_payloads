@@ -17,6 +17,8 @@ volatile pointer_table_t PTR_TABLE = {
 
     .uart_base              = 0x00000000,
     .register_major_command = 0x00000000,
+    .clear_error_msg        = 0x00000000,
+    .set_error_msg          = 0x00000000,
     .malloc                 = 0x00000000,
     .free                   = 0x00000000,
     .mmc_get_card           = 0x00000000,
@@ -29,6 +31,8 @@ u32 init_pointers(void) {
 
     mtk_uart_set_base(PTR_TABLE.uart_base);
     register_major_command  = (void *)(uptr)PTR_TABLE.register_major_command;
+    clear_error_msg         = (void *)(uptr)PTR_TABLE.clear_error_msg;
+    set_error_msg           = (void *)(uptr)PTR_TABLE.set_error_msg;
     malloc                  = (void *)(uptr)PTR_TABLE.malloc;
     free                    = (void *)(uptr)PTR_TABLE.free;
     mmc_get_card            = (void *)(uptr)PTR_TABLE.mmc_get_card;

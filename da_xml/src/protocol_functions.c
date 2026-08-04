@@ -20,6 +20,8 @@ static int  da_log_pos = 0;
 char da_log_buf[DA_LOG_BUF_SIZE];
 
 void (*volatile register_major_command)(const char *, const char *, HHANDLE);
+void (*volatile clear_error_msg)(void);
+void (*volatile set_error_msg)(const char *, ...);
 
 void *(*volatile malloc)(size_t size);
 void (*volatile free)(void *ptr);

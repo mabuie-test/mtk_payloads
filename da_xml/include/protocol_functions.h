@@ -16,6 +16,8 @@ typedef struct __attribute__((packed)) pointer_table_t {
     u32 magic;
     u32 uart_base;
     u32 register_major_command;
+    u32 clear_error_msg;
+    u32 set_error_msg;
     u32 malloc;
     u32 free;
     u32 mmc_get_card;
@@ -35,6 +37,8 @@ typedef int (*HHANDLE)(struct com_channel_struct* /* channel */, const char* /* 
 
 // Protocol functions
 extern void (*volatile register_major_command)(const char *, const char *, HHANDLE);
+extern void (*volatile clear_error_msg)(void);
+extern void (*volatile set_error_msg)(const char *, ...);
 int download(struct com_channel_struct *channel, const char *filename, char **data_buf, u32 *data_len, const char *desc);
 int upload(struct com_channel_struct *channel, const char *filename, const char *data_buf, u32 data_len, const char *desc);
 int download_stream(struct com_channel_struct *channel, const char *filename, u32 chunk_size, data_stream_cb cb, void *ctx, const char *desc);
