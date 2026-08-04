@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 Shomy
  */
 
+#include "xml.h"
 #include <types.h>
 #include <crypto/ssr/registers.h>
 #include <debug.h>
@@ -26,12 +27,42 @@
 
 volatile da_ctx_t g_da_ctx;
 
+typedef struct {
+    const char *name;
+    int val;
+} enum_map_t;
+
+static int parse_enum(const char *str, const enum_map_t *map, size_t count, int default_val) {
+    if (!str) return default_val;
+    for (size_t i = 0; i < count; i++) {
+        if (strcmp(str, map[i].name) == 0) return map[i].val;
+    }
+    return default_val;
+}
+
+static const enum_map_t key_id_map[] = {
+    {"SW_KEY", AES_SW_KEY}, {"SwKey", AES_SW_KEY},
+    {"HW_KEY", AES_HW_KEY}, {"HwKey", AES_HW_KEY},
+    {"HW_WRAPPED_KEY", AES_HW_WRAP_KEY}, {"HwWrappedKey", AES_HW_WRAP_KEY},
+    {"RID_KEY", AES_RID_KEY}, {"RidKey", AES_RID_KEY},
+    {"CUSTOM_KEY", AES_CUSTOM_KEY}, {"CustomKey", AES_CUSTOM_KEY},
+};
+
+static const enum_map_t key_sz_map[] = {
+    {"KEY_128", AES_KEY_128}, {"Key128", AES_KEY_128},
+    {"KEY_192", AES_KEY_192}, {"Key192", AES_KEY_192},
+    {"KEY_256", AES_KEY_256}, {"Key256", AES_KEY_256},
+};
+
+
 int cmd_ack(struct com_channel_struct *channel, const char*) {
     int status = STATUS_OK;
     const char *target_file = "ack.xml";
     char ack_xml[512];
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
+
+    clear_error_msg();
 
     int len = npf_snprintf(ack_xml, sizeof(ack_xml),
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -62,6 +93,8 @@ int cmd_da_ctx(struct com_channel_struct *channel, const char* xml) {
     xml_parser_t tree;
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
+
+    clear_error_msg();
 
     XML_LOAD(tree, xml, "da/arg/tzcc_base", "da/arg/ssr_base",
                         "da/arg/sej_base", "da/arg/usb_log",
@@ -123,6 +156,8 @@ int cmd_readmem(struct com_channel_struct *channel, const char* xml) {
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
+    clear_error_msg();
+
     XML_LOAD(tree, xml, "da/arg/address", "da/arg/length", NULL);
 
     address = XML_ATOULL(tree, "da/arg/address");
@@ -144,6 +179,8 @@ int cmd_writemem(struct com_channel_struct *channel, const char* xml) {
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
+    clear_error_msg();
+
     XML_LOAD(tree, xml, "da/arg/address", "da/arg/length", NULL);
 
     address = (char *)(uintptr_t)XML_ATOULL(tree, "da/arg/address");
@@ -164,6 +201,8 @@ int cmd_readregister(struct com_channel_struct *channel, const char *xml) {
     char read_reg_xml[128];
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
+
+    clear_error_msg();
 
     XML_LOAD(tree, xml, "da/arg/address", NULL);
 
@@ -196,6 +235,8 @@ int cmd_writeregister(struct com_channel_struct *channel, const char *xml) {
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
+    clear_error_msg();
+
     XML_LOAD(tree, xml, "da/arg/address", "da/arg/value", NULL);
 
     address = XML_ATOULL(tree, "da/arg/address");
@@ -209,57 +250,97 @@ int cmd_writeregister(struct com_channel_struct *channel, const char *xml) {
 }
 
 int cmd_key_derive(struct com_channel_struct *channel, const char *xml) {
-    (void)channel;
     int status = STATUS_OK;
-    KeyType type = RPMB_KEY;
-    u8 key[32] __attribute__((aligned(16))) = {0};
-    char key_hex[65];
     u32 key_length = 0x20;
+    u8 key[32] __attribute__((aligned(16))) = {0};
+    char key_hex[65] = {0};
+
+    u8 label[32] = {0};
+    u8 salt[32] = {0};
+    u32 label_len = 0;
+    u32 salt_len = 0;
+
     xml_parser_t tree;
-    const char *key_type;
+    const char *key_type_str = NULL;
+    const char *key_len_str = NULL;
+    const char *label_str = NULL;
+    const char *salt_str = NULL;
+
     char key_derive_xml[256];
     const char *key_derive_fmt =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<key>"
         "<type>%s</type>"
+        "<status>%d</status>"
         "<result>%s</result>"
         "</key>";
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
-    XML_LOAD(tree, xml, "da/arg/key_type", NULL);
+    clear_error_msg();
 
-    key_type = XML_TEXT(tree, "da/arg/key_type");
+    XML_LOAD(tree, xml, "da/arg", NULL);
 
-    printf("Key Derive: type=%s\n", key_type);
+    key_type_str = XML_TEXT(tree, "da/arg/key_type");
+    key_len_str  = XML_TEXT(tree, "da/arg/key_length");
 
-    if (strncmp(key_type, "RPMB", 4) == 0) {
-        type = RPMB_KEY;
-    } else if (strncmp(key_type, "FDE", 3) == 0) {
-        type = FDE_KEY;
-        key_length = 0x10;
-    } else {
-        printf("Unsupported key type: %s\n", key_type);
-        status = STATUS_ERR;
-        goto end;
+    if (key_len_str != NULL) {
+        key_length = (u32)atoul(key_len_str);
     }
 
+    if (key_length > sizeof(key) || (key_length != 0x10 && key_length != 0x20 && key_length != 0x18)) {
+        printf("%s: Invalid key output length 0x%" PRIx32 "\n", __func__, key_length);
+        set_error_msg("Invalid key derive output length");
+        status = STATUS_ERR;
+        goto out;
+    }
 
-    status = key_derive(type, key, key_length);
+    if (key_type_str != NULL && strcmp(key_type_str, "INPUT") == 0) {
+        label_str = XML_TEXT(tree, "da/arg/label");
+        salt_str  = XML_TEXT(tree, "da/arg/salt");
 
-    bytes_to_hex(key, key_length, key_hex);
 
-    u32 len = npf_snprintf(key_derive_xml, sizeof(key_derive_xml),
+        if (label_str != NULL) {
+            label_len = hex_to_bytes(label_str, label, sizeof(label));
+        }
+        if (salt_str != NULL) {
+            salt_len = hex_to_bytes(salt_str, salt, sizeof(salt));
+        }
+
+        if (label_len > sizeof(label) || salt_len > sizeof(salt)) {
+            printf("%s: label_len (%" PRIu32 ") or salt_len (%" PRIu32 ") exceeds max 32\n",
+                   __func__, label_len, salt_len);
+            set_error_msg("Invalid label or salt length");
+            status = STATUS_ERR;
+            goto out;
+        }
+
+        status = key_derive_input(label, label_len, salt, salt_len, key, key_length);
+
+    } else {
+        KeyType key_type = key_type_from_str(key_type_str);
+
+        printf("Deriving key of type %s (%d)\n", key_type_str ? key_type_str : "NULL", key_type);
+        status = (int)key_derive(key_type, key, key_length);
+    }
+
+    if (status == STATUS_OK) {
+        bytes_to_hex(key, key_length, key_hex);
+    }
+
+    u32 len = npf_snprintf(
+        key_derive_xml, sizeof(key_derive_xml),
         key_derive_fmt,
-        key_type, key_hex
+        key_type_str ? key_type_str : "UNKNOWN",
+        status,
+        key_hex
     );
 
     status = upload(channel, "derived_key.xml", key_derive_xml, len, "derived key result");
 
-end:
+out:
     return status;
 }
-
 
 int cmd_sej_aes(struct com_channel_struct *channel, const char* xml) {
     // V6 can handle it
@@ -276,17 +357,16 @@ int cmd_sej_aes(struct com_channel_struct *channel, const char* xml) {
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
+    clear_error_msg();
+
     XML_LOAD(tree, xml, "da/arg/encrypt", "da/arg/ac", NULL);
 
     encrypt    = XML_IS_YES(tree, "da/arg/encrypt");
     anti_clone = XML_IS_YES(tree, "da/arg/ac");
 
-    // Default parameters, perhaps we can consider adding more options in future.
-    params.key_id = AES_SW_KEY;
-    params.key_sz = AES_KEY_256;
-    params.mode = AES_CBC_MODE;
-
-    hexdump((void*)&params, sizeof(sej_param_t), 0);
+    params.mode = XML_IS_YES(tree, "da/arg/cbc") ? AES_CBC_MODE : AES_ECB_MODE;
+    params.key_id= parse_enum(XML_TEXT(tree, "da/arg/key_id"), key_id_map, sizeof(key_id_map)/sizeof(key_id_map[0]), AES_SW_KEY);
+    params.key_sz     = parse_enum(XML_TEXT(tree, "da/arg/key_size"), key_sz_map, sizeof(key_sz_map)/sizeof(key_sz_map[0]), AES_KEY_256);
 
     printf("SEJ AES: encrypt=%d anti_clone=%d\n", encrypt, anti_clone);
 
@@ -295,8 +375,6 @@ int cmd_sej_aes(struct com_channel_struct *channel, const char* xml) {
     params.length = data_length;
     params.anti_clone = anti_clone;
     params.encrypt = encrypt;
-
-    hexdump((void*)&params, sizeof(sej_param_t), 0);
 
     printf("SEJ AES: download status=%d data_buf=%p data_length=0x%08x\n",
         status, data_buf, data_length);
@@ -309,6 +387,8 @@ int cmd_sej_aes(struct com_channel_struct *channel, const char* xml) {
     if (data_length > AES_MAX_LEN) {
         printf("SEJ AES: rejecting data_length=0x%08x > AES_MAX_LEN=0x%08x\n",
             data_length, AES_MAX_LEN);
+
+        set_error_msg("SEJ AES data length exceeds maximum allowed");
         status = STATUS_ERR;
         goto end;
     }
@@ -335,6 +415,8 @@ int cmd_rpmb_init(struct com_channel_struct *channel, const char *xml) {
 
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
 
+    clear_error_msg();
+
     int status = STATUS_OK;
     xml_parser_t tree;
 
@@ -351,6 +433,7 @@ int cmd_rpmb_init(struct com_channel_struct *channel, const char *xml) {
 
     if (g_da_ctx.storage == STORAGE_UNKNOWN) {
         printf("Storage type unknown, cannot initialize RPMB!\n");
+        set_error_msg("Storage type unknown, cannot initialize RPMB");
         status = STATUS_ERR;
         goto end;
     }
@@ -362,12 +445,14 @@ int cmd_rpmb_init(struct com_channel_struct *channel, const char *xml) {
 
     if (strlen(key_hex) != 64) {
         printf("RPMB key must be 64 hex chars (32 bytes)\n");
+        set_error_msg("RPMB key must be 64 hex chars (32 bytes)");
         status = STATUS_ERR;
         goto end;
     }
 
     if (hex_to_bytes(key_hex, rpmbkey, sizeof(rpmbkey)) < 0) {
         printf("Invalid RPMB key format\n");
+        set_error_msg("Invalid RPMB key format");
         status = STATUS_ERR;
         goto end;
     }
@@ -378,6 +463,7 @@ int cmd_rpmb_init(struct com_channel_struct *channel, const char *xml) {
     printf("Initializing RPMB partition %u\n", rpmb_part);
     if (rpmb_init(rpmb_part) < 0) {
         printf("RPMB initialization failed\n");
+        set_error_msg("RPMB initialization failed");
         status = STATUS_ERR;
     }
 
@@ -387,6 +473,8 @@ end:
 
 int cmd_rpmb_read(struct com_channel_struct *channel, const char *xml) {
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
+
+    clear_error_msg();
 
     int status = STATUS_OK;
     xml_parser_t tree;
@@ -402,12 +490,14 @@ int cmd_rpmb_read(struct com_channel_struct *channel, const char *xml) {
 
     if (g_da_ctx.storage == STORAGE_UNKNOWN) {
         printf("Storage type unknown, cannot read RPMB!\n");
+        set_error_msg("Storage type unknown, cannot read RPMB");
         status = STATUS_ERR;
         goto end;
     }
 
     if (rpmb_is_initialized(rpmb_part) == false) {
         printf("RPMB partition %u not initialized!\n", rpmb_part);
+        set_error_msg("RPMB partition not initialized");
         status = STATUS_ERR;
         goto end;
     }
@@ -423,6 +513,7 @@ int cmd_rpmb_read(struct com_channel_struct *channel, const char *xml) {
         printf("Finished reading RPMB\n");
     } else {
         printf("RPMB read failed with error %d\n", status);
+        set_error_msg("RPMB read failed");
         status = STATUS_ERR;
     }
 
@@ -432,6 +523,8 @@ end:
 
 int cmd_rpmb_write(struct com_channel_struct *channel, const char *xml) {
     printf("\n\n*** Enter [%s] Cmd ***\n\n", __func__);
+
+    clear_error_msg();
 
     int status = STATUS_OK;
     xml_parser_t tree;
@@ -447,12 +540,14 @@ int cmd_rpmb_write(struct com_channel_struct *channel, const char *xml) {
 
     if (g_da_ctx.storage == STORAGE_UNKNOWN) {
         printf("Storage type unknown, cannot write RPMB!\n");
+        set_error_msg("Storage type unknown, cannot write RPMB");
         status = STATUS_ERR;
         goto end;
     }
 
     if (rpmb_is_initialized(rpmb_part) == false) {
         printf("RPMB partition %u not initialized!\n", rpmb_part);
+        set_error_msg("RPMB partition not initialized");
         status = STATUS_ERR;
         goto end;
     }
@@ -468,6 +563,7 @@ int cmd_rpmb_write(struct com_channel_struct *channel, const char *xml) {
         printf("Finished writing RPMB\n");
     } else {
         printf("RPMB write failed with error %d\n", status);
+        set_error_msg("RPMB write failed");
         status = STATUS_ERR;
     }
 
