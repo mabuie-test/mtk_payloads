@@ -13,8 +13,8 @@ LINKER := linker.x
 BUILDDIR := build
 OUTDIR := ../payloads
 
-OUT_ELF := $(BUILDDIR)/secpatcher.elf
-OUT_BIN := $(OUTDIR)/secpatcher.bin
+OUT_ELF := $(BUILDDIR)/brom_defuse.elf
+OUT_BIN := $(OUTDIR)/brom_defuse.bin
 
 CFLAGS := -std=gnu99 -Os -mthumb -mcpu=cortex-a9 -fno-builtin-printf \
           -fno-strict-aliasing -fno-builtin-memcpy -fPIE -mno-unaligned-access \
