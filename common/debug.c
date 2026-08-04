@@ -116,21 +116,25 @@ void bytes_to_hex(const uint8_t *in, size_t len, char *out) {
         npf_snprintf(out + i * 2, 3, "%02x", in[i]);
 }
 
-int hex_to_bytes(const char *hex, uint8_t *out, size_t out_len) {
+int hex_to_bytes(const char *hex, uint8_t *out, size_t max_out_len) {
+    if (!hex || !out) return -1;
+
     size_t hex_len = strlen(hex);
 
-    if (hex_len != out_len * 2)
-        return -1;
+    if (hex_len % 2 != 0) return -1;
 
-    for (size_t i = 0; i < out_len; i++) {
-        char hi = hex[i * 2];
-        char lo = hex[i * 2 + 1];
+    size_t byte_len = hex_len / 2;
 
-        if (!isxdigit(hi) || !isxdigit(lo))
-            return -1;
+    if (byte_len > max_out_len) return -1;
 
-        out[i] = (hexval(hi) << 4) | hexval(lo);
+    for (size_t i = 0; i < byte_len; i++) {
+        int hi = hexval(hex[i * 2]);
+        int lo = hexval(hex[i * 2 + 1]);
+
+        if (hi < 0 || lo < 0) return -1;
+
+        out[i] = (uint8_t)((hi << 4) | lo);
     }
 
-    return 0;
+    return (int)byte_len;
 }
