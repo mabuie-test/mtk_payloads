@@ -33,7 +33,6 @@ __attribute__((section(".text.start"))) void main(void)
     heap_dump(heap_struct);
     printf("\n");
 
-    register_major_command("CMD:BOOT-TO", "1", cmd_boot_to);
     register_major_command("CMD:EXP-CALL-FUNC", "1", cmd_call_function);
     register_major_command("CMD:EXP-PATCH-MEM", "1", cmd_patch_mem);
 

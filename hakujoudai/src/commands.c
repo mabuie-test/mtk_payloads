@@ -17,30 +17,87 @@
 #define MXML_TYPE_TEXT     2
 #define MXML_TYPE_OPAQUE   3
 
-int (*const volatile download)(struct com_channel_struct *, const char *, char **, uint32_t *, const char *);
+int download(struct com_channel_struct *channel, const char *filename, char **data_buf, u32 *data_len, const char *desc) {
+    printf("Download host file: %s\n", filename);
 
-int cmd_boot_to(struct com_channel_struct *channel, const char *xml)
-{
-    (void)xml;
-    volatile uintptr_t ext_addr = 0x68000000;
-    char *buf = (char *)ext_addr;
-    uint32_t len = 0x1000000;
-
-    printf("%s: loading extensions to 0x%lx (max 0x%lx bytes)\n",
-           __func__, (unsigned long)ext_addr, (unsigned long)len);
-
-    int status = download(channel, "ext", &buf, &len, "ext");
-    if (status != STATUS_OK) {
-        printf("%s: download failed: 0x%lx\n", __func__, (unsigned long)status);
-        return status;
+    if (!channel || !data_buf || !data_len) {
+        printf("Invalid arguments to download\n");
+        return STATUS_ERR;
     }
 
-    printf("%s: scheduling call to 0x%lx\n", __func__, (unsigned long)ext_addr);
+    u32 packet_length = 0x200000;
+    char xml[XML_CMD_BUFF_LEN] = {0};
+    int xml_len = npf_snprintf(xml, sizeof(xml),
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+        "<host><version>1.0</version>"
+        "<command>CMD:DOWNLOAD-FILE</command>"
+        "<arg><checksum>CHK_NO</checksum>"
+        "<info>%s</info><source_file>%s</source_file>"
+        "<packet_length>0x%x</packet_length></arg></host>",
+        desc, filename, (unsigned int)packet_length);
 
-    get_cmd_dpc()->cb = (cmd_dpc_cb)ext_addr;
-    get_cmd_dpc()->arg = &status;
+    if (channel->write((u8 *)xml, (u32)xml_len + 1) != 0) {
+        printf("Failed to send download command\n");
+        return STATUS_ERR;
+    }
 
-    return status;
+    char result[CMD_RESULT_BUFF_LEN] = {0};
+    u32 len = sizeof(result);
+    if (channel->read((u8 *)result, &len) != 0) return STATUS_ERR;
+
+    char *vec[2] = {0};
+    split(result, vec, 2, '@');
+    if (strncmp(vec[0], "OK", 2) != 0) return STATUS_ERR;
+
+    char buf_total_length[CMD_RESULT_BUFF_LEN] = {0};
+    len = sizeof(buf_total_length);
+    if (channel->read((u8 *)buf_total_length, &len) != 0) {
+        channel->write((u8 *)"ERR", 4);
+        return STATUS_ERR;
+    }
+
+    split(buf_total_length, vec, 2, '@');
+    if (strncmp(vec[0], "OK", 2) != 0) {
+        channel->write((u8 *)"ERR", 4);
+        return STATUS_ERR;
+    }
+
+    u32 total_length = atoui(vec[1]);
+
+    if (*data_len <= total_length) {
+        printf("Buffer too small: have %u, need %u\n", *data_len, total_length + 1);
+        channel->write((u8 *)"ERR", 4);
+        return STATUS_ERR;
+    }
+
+    *data_len = total_length;
+    memset(*data_buf, 0, total_length + 4);
+
+    channel->write((u8 *)"OK", 3);
+
+    u32 xfered = 0;
+    while (xfered < total_length) {
+        len = sizeof(result);
+        if (channel->read((u8 *)result, &len) != 0 || strncmp(result, "OK", 2) != 0) {
+            channel->write((u8 *)"ERR", 4);
+            return STATUS_ERR;
+        }
+        channel->write((u8 *)"OK", 3);
+
+        u32 chunk = (total_length - xfered > packet_length) ? packet_length : (total_length - xfered);
+
+        if (channel->read((u8 *)*data_buf + xfered, &chunk) != 0) {
+            channel->write((u8 *)"ERR", 4);
+            return STATUS_ERR;
+        }
+        xfered += chunk;
+
+        channel->write((u8 *)"OK", 3);
+    }
+
+    (*data_buf)[total_length] = 0;
+    printf("Downloaded %u bytes for %s\n", xfered, desc);
+    return STATUS_OK;
 }
 
 int cmd_patch_mem(struct com_channel_struct *channel, const char *xml)
@@ -53,7 +110,7 @@ int cmd_patch_mem(struct com_channel_struct *channel, const char *xml)
     u32 len  = XML_ATOULL(tree, "da/arg/length");
 
     printf("%s: patching %lu bytes at 0x%lx\n",
-           __func__, addr, addr);
+           __func__, len, addr);
 
     char *dst = (char *)(uptr)addr;
 
@@ -76,7 +133,6 @@ int cmd_call_function(struct com_channel_struct *channel, const char *xml)
     xml_parser_t tree;
 
     XML_LOAD(tree, xml, "da/arg/address", NULL);
-
 
     u32 addr = XML_ATOULL(tree, "da/arg/address");
 

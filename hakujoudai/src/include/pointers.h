@@ -21,7 +21,6 @@ typedef struct {
     u32 magic;
     u32 uart_base;
     u32 register_major_command;
-    u32 download;
     u32 dagent_command_loop2;
     u32 heap_struct;
 } pointer_table_t;
@@ -36,7 +35,6 @@ volatile pointer_table_t PTR_TABLE = {
 
     .uart_base                = 0x00000000,
     .register_major_command   = 0x00000000,
-    .download                 = 0x00000000,
     .dagent_command_loop2     = 0x00000000,
     .heap_struct              = 0x00000000,
 };
@@ -47,7 +45,6 @@ u32 init_pointers(void) {
 
     mtk_uart_set_base(PTR_TABLE.uart_base);
     register_major_command  = (void *)(uptr)PTR_TABLE.register_major_command;
-    download                 = (void*)(uptr)PTR_TABLE.download;
     dagent_command_loop2     = (void *)(uptr)PTR_TABLE.dagent_command_loop2;
     heap_struct              = (uptr)PTR_TABLE.heap_struct;
 

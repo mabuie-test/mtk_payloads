@@ -16,6 +16,8 @@ struct com_channel_struct {
 
 typedef int (*HHANDLE)(struct com_channel_struct *channel, const char *xml);
 
-int cmd_boot_to(struct com_channel_struct *channel, const char *xml);
+#define XML_CMD_BUFF_LEN 0x80000
+#define CMD_RESULT_BUFF_LEN 64
+
 int cmd_patch_mem(struct com_channel_struct *channel, const char *xml);
 int cmd_call_function(struct com_channel_struct *channel, const char *xml);
