@@ -20,7 +20,7 @@ COMMON_CFLAGS := -std=gnu99 -Os -fPIE \
 	-fno-strict-aliasing -DPRINTF_DISABLE_SUPPORT_FLOAT=1
 
 CFLAGS_ARM   := $(COMMON_CFLAGS) -marm -mcpu=cortex-a9 -mno-unaligned-access
-CFLAGS_ARM64 := $(COMMON_CFLAGS) -march=armv8-a -mcmodel=tiny
+CFLAGS_ARM64 := $(COMMON_CFLAGS) -march=armv8-a -mcmodel=tiny -fvisibility=hidden -mgeneral-regs-only -mno-outline-atomics -mstrict-align -fomit-frame-pointer
 
 LDFLAGS_ARM   := -T linker.x -nodefaultlibs -nostdlib -Wl,--no-warn-rwx-segments
 LDFLAGS_ARM64 := -T linker64.x -nodefaultlibs -nostdlib -Wl,--no-warn-rwx-segments

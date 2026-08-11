@@ -22,9 +22,16 @@ struct com_channel_struct {
     int (*log_to_uart)(const uint8_t* buffer, uint32_t length);
 };
 
+extern __attribute__((visibility("hidden"))) uintptr_t __bss_start[];
+extern __attribute__((visibility("hidden"))) uintptr_t __bss_end[];
 
 __attribute__((section(".text.start"))) int cmd_boot_to(struct com_channel_struct* channel, const char* xml) {
-    char buf[16];
+    uintptr_t *dst = __bss_start;
+    while (dst < __bss_end) {
+        *dst++ = 0;
+    }
+
+    __attribute__((aligned(16))) char buf[16];
     uint32_t xfered = 0, total_length = 0, chunk;
 
     channel->write((uint8_t *)XML_CMD, sizeof(XML_CMD));
@@ -32,8 +39,8 @@ __attribute__((section(".text.start"))) int cmd_boot_to(struct com_channel_struc
     chunk = 16; channel->read((uint8_t *)buf, &chunk);
     chunk = 16; channel->read((uint8_t *)buf, &chunk);
 
-    for (char *p = buf + 3; *p >= '0';) {
-        total_length = total_length * 10 + (*p++ - '0');
+    for (char *p = buf + 3, *end = buf + sizeof(buf); p < end && *p >= '0' && *p <= '9'; p++) {
+        total_length = total_length * 10 + (uint32_t)(*p - '0');
     }
 
     goto entry;

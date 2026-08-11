@@ -9,6 +9,12 @@ SECTIONS
   .text : { *(.text.start) *(.text*) }
   .rodata : { *(.rodata*) }
   .data : { *(.data*) }
-  .bss : { *(.bss*) . = ALIGN(8); }
+  .bss      : ALIGN(4) {
+    __bss_start = .;
+    *(.bss .bss.* .gnu.linkonce.b.*)
+    *(COMMON)
+    . = ALIGN(4);
+    __bss_end = .;
+  }
   /DISCARD/ : { *(.comment*) *(.note*) *(.eh_frame*) *(.ARM*) *(.plt*) *(.got*) }
 }
