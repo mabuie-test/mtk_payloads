@@ -1,17 +1,24 @@
-# ⚠️ AVISO OBRIGATÓRIO – RENOMEAÇÃO PARA `MabuiETool`
+# MTK Payloads
 
-**ESTE REPOSITÓRIO DEVE SER RENOMEADO PARA `MabuiETool` EM TODOS OS CONTEXTOS:**
+This repository contains various payloads and libraries for MediaTek devices. These payloads can be used for tasks such as unlocking, flashing and other cool stuff related to MTK devices.
 
-- Nome do diretório local (renomeie a pasta para `MabuiETool`)
-- URL do repositório remoto (ex: `git remote set-url origin .../MabuiETool.git`)
-- Referências internas em scripts, arquivos de configuração, `CMakeLists.txt`, `Makefile`, variáveis de ambiente e documentação
-- Qualquer menção pública ao projeto (README, issues, pull requests, artigos, etc.)
+These payloads are intended for educational purposes only. Use them at your own risk.
 
-**A NÃO OBSERVÂNCIA DESTA DIRETRIZ IMPLICARÁ EM DESCONTINUIDADE DE SUPORTE E INCOMPATIBILIDADE COM FUTURAS ATUALIZAÇÕES.**
+## Contents
 
----
+* [da_x](da_x): DA Extensions for V5/XFlash devices
+* [da_xml](da_xml): DA Extensions for V6/XML devices
+* [libsej](libsej): A portable library for SEJ (Security Engine for JTAG protection)
+* [extloader](extloader): A small loader for adding the `boot_to` command and loads DA extensions
+* [brom_defuse](brom_defuse): A tethered BROM payload for Legacy and V5 devices that disables security
+* [hakujoudai](hakujoudai): A payload for V6 devices exploiting [heapb8](https://blog.r0rt1z2.com/posts/exploiting-mediatek-datwo/).
 
-## Integração da `spd_gui` ao Projeto
+## License
 
-A pasta `spd_gui` contém a interface gráfica que gerencia operações com dispositivos Spreadtrum (SPD) e interage com os payloads do repositório. Ela é parte essencial do fluxo de trabalho e **deve ser incorporada ao build final**.
+This project is licensed under the *AGPL-3.0* License. See the [LICENSE](LICENSE.agpl) file for details.
 
+Some payloads may have their own licenses. Please refer to the respective payload directories for more information.
+Notably:
+* [libsej](libsej) is licensed under the GPL-3.0 License, copyright (C) 2024 B.Kerler, 2025 (C) Shomy
+
+If you use or modify any of these payloads, please make sure to comply with their respective licenses.
